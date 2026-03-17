@@ -8,6 +8,9 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [1.0.4] - 2026-03-17
 
 ### Ajouté
+- **Nouvelle identité visuelle** : Icône de l'application générée avec flutter_launcher_icons
+- **Support GitHub** : Liens vers le repository, issues et discussions dans l'application
+- **Clé Cesium** : Support pour dons via monnaie libre Ğ1 affichée dans l'écran "À propos"
 - **Modularisation complète** : Refactorisation des gros fichiers dépassant 300 lignes
 - **Nouvelle architecture** : Séparation des dialogues en widgets individuels dans `/widgets/dialogs/`
 - **Centralisation de la logique** : Création du `TransitionHelper` pour gérer les transitions entre étapes
@@ -16,6 +19,7 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **Licence MIT** : Ajout de la licence pour publication publique
 
 ### Améliorations
+- **Interface "À propos"** : Ajout de liens cliquables vers GitHub et support Cesium
 - **Réduction de 75%** du fichier `piece_dialogs.dart` (495 → 126 lignes)
 - **Meilleure maintenabilité** : Widgets réutilisables et indépendants
 - **Code plus propre** : Suppression des types `dynamic` restants
@@ -24,6 +28,10 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Sécurité
 - **Vérification des secrets** : Aucun secret codé en dur détecté
 - **Nettoyage des credentials** : Suppression des références aux credentials locaux
+
+### Dépendances
+- **flutter_launcher_icons** : Ajout de la dépendance pour la génération d'icônes
+- **url_launcher** : Ajout pour la gestion des liens externes
 
 ## [1.0.3] - 2026-03-16
 
