@@ -11,11 +11,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:salaison_app/core/database/app_database.dart';
 import 'package:salaison_app/features/pieces/data/pieces_repository.dart';
-import 'package:salaison_app/core/utils/unit_converter.dart';
+import 'package:salaison_app/core/services/unit_converter.dart';
+import 'package:salaison_app/core/providers/settings_provider.dart';
 import 'package:salaison_app/l10n/generated/app_localizations.dart';
+import 'package:drift/drift.dart' as drift;
 
 /// Widget affichant la boîte de dialogue de configuration de fumage.
-class SmokingDialog extends StatefulWidget {
+class SmokingDialog extends ConsumerWidget {
   final Piece piece;
   final double? currentWeight;
   final VoidCallback onSmokingConfigured;
@@ -28,34 +30,12 @@ class SmokingDialog extends StatefulWidget {
   });
 
   @override
-  State<SmokingDialog> createState() => _SmokingDialogState();
-}
-
-class _SmokingDialogState extends State<SmokingDialog> {
-  late final TextEditingController _weightController;
-  late final TextEditingController _durationController;
-  late final TextEditingController _woodBlendController;
-
-  @override
-  void initState() {
-    super.initState();
-    _weightController = TextEditingController(text: widget.currentWeight?.toStringAsFixed(1));
-    _durationController = TextEditingController(text: '12');
-    _woodBlendController = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _weightController.dispose();
-    _durationController.dispose();
-    _woodBlendController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final system = ref.watch(unitSystemProvider);
+    final weightController = TextEditingController(text: currentWeight?.toStringAsFixed(1));
+    final durationController = TextEditingController(text: '12');
+    final woodBlendController = TextEditingController();
 
     return AlertDialog(
       title: Text(l10n.smokingTitle),
@@ -66,16 +46,16 @@ class _SmokingDialogState extends State<SmokingDialog> {
             Text(l10n.smokingContent, style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             TextField(
-              controller: _weightController,
+              controller: weightController,
               decoration: InputDecoration(
-                labelText: '${l10n.weight} (${UnitConverter.getSuffix(widget.currentWeight ?? 500, system)})', 
+                labelText: '${l10n.weight} (${UnitConverter.getSuffix(currentWeight ?? 500, system)})', 
                 border: const OutlineInputBorder(),
               ),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
             ),
             const SizedBox(height: 16),
             TextField(
-              controller: _durationController,
+              controller: durationController,
               decoration: InputDecoration(
                 labelText: '${l10n.smokingDuration} (${l10n.hours})', 
                 border: const OutlineInputBorder(), 
@@ -85,7 +65,7 @@ class _SmokingDialogState extends State<SmokingDialog> {
             ),
             const SizedBox(height: 16),
             TextField(
-              controller: _woodBlendController,
+              controller: woodBlendController,
               decoration: InputDecoration(
                 labelText: '${l10n.woodBlend} (ex: 30% Oranger, 70% Hêtre)', 
                 border: const OutlineInputBorder(),
@@ -100,7 +80,7 @@ class _SmokingDialogState extends State<SmokingDialog> {
           child: Text(l10n.cancel),
         ),
         ElevatedButton(
-          onPressed: () => _configureSmoking(context, ref),
+          onPressed: () => _configureSmoking(context, ref, weightController, durationController, woodBlendController),
           child: Text(l10n.validate),
         ),
       ],
@@ -108,40 +88,40 @@ class _SmokingDialogState extends State<SmokingDialog> {
   }
 
   /// Configure le fumage en enregistrant la pesée et les paramètres.
-  Future<void> _configureSmoking(BuildContext context, WidgetRef ref) async {
+  Future<void> _configureSmoking(BuildContext context, WidgetRef ref, TextEditingController weightController, TextEditingController durationController, TextEditingController woodBlendController) async {
     try {
-      final weightInput = double.tryParse(_weightController.text);
-      final hours = double.tryParse(_durationController.text) ?? 0;
+      final weightInput = double.tryParse(weightController.text);
+      final hours = double.tryParse(durationController.text) ?? 0;
       if (weightInput == null) return;
 
-      final smokingUnit = UnitConverter.getSuffix(weightInput, system);
+      final smokingUnit = UnitConverter.getSuffix(weightInput, ref.watch(unitSystemProvider));
       final storageWeight = UnitConverter.toGrams(weightInput, smokingUnit);
 
-      if (widget.currentWeight != null && storageWeight > widget.currentWeight!) {
+      if (currentWeight != null && storageWeight > currentWeight!) {
         final confirm = await _showIncreaseWarning(context);
         if (!confirm) return;
       }
 
       await ref.read(piecesRepositoryProvider).addWeighing(
         WeighingsCompanion.insert(
-          pieceId: widget.piece.id,
+          pieceId: piece.id,
           date: DateTime.now(),
           poids: storageWeight,
           label: const drift.Value('Sortie SSV'),
         ),
       );
 
-      final newDuration = widget.piece.smokingDuration + hours;
+      final newDuration = piece.smokingDuration + hours;
 
       await ref.read(piecesRepositoryProvider).updatePiece(
-        widget.piece.toCompanion(false).copyWith(
+        piece.toCompanion(false).copyWith(
           statut: const drift.Value('Fumage'), 
-          woodBlend: drift.Value(_woodBlendController.text),
+          woodBlend: drift.Value(woodBlendController.text),
           smokingDuration: drift.Value(newDuration),
         ),
       );
       Navigator.pop(context);
-      widget.onSmokingConfigured();
+      onSmokingConfigured();
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -150,6 +130,7 @@ class _SmokingDialogState extends State<SmokingDialog> {
       }
     }
   }
+
 
   /// Avertit l'utilisateur si le poids saisi est supérieur au poids précédent.
   Future<bool> _showIncreaseWarning(BuildContext context) async {

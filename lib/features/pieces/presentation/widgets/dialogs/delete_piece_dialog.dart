@@ -12,9 +12,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:salaison_app/core/database/app_database.dart';
 import 'package:salaison_app/features/pieces/data/pieces_repository.dart';
 import 'package:salaison_app/l10n/generated/app_localizations.dart';
+import 'package:drift/drift.dart' as drift;
 
 /// Widget affichant la boîte de dialogue de confirmation de suppression.
-class DeletePieceDialog extends StatelessWidget {
+class DeletePieceDialog extends ConsumerWidget {
   final Piece piece;
   final VoidCallback onDeleted;
 
@@ -25,7 +26,7 @@ class DeletePieceDialog extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
 
     return AlertDialog(

@@ -12,11 +12,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:salaison_app/core/database/app_database.dart';
 import 'package:salaison_app/features/pieces/data/pieces_repository.dart';
-import 'package:salaison_app/core/utils/unit_converter.dart';
+import 'package:salaison_app/core/services/unit_converter.dart';
+import 'package:salaison_app/core/providers/settings_provider.dart';
 import 'package:salaison_app/l10n/generated/app_localizations.dart';
+import 'package:drift/drift.dart' as drift;
 
 /// Widget affichant la boîte de dialogue de pesée finale.
-class FinalWeighingDialog extends StatefulWidget {
+class FinalWeighingDialog extends ConsumerWidget {
   final Piece piece;
   final double? currentWeight;
   final VoidCallback onFinalized;
@@ -29,28 +31,10 @@ class FinalWeighingDialog extends StatefulWidget {
   });
 
   @override
-  State<FinalWeighingDialog> createState() => _FinalWeighingDialogState();
-}
-
-class _FinalWeighingDialogState extends State<FinalWeighingDialog> {
-  late final TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.currentWeight?.toStringAsFixed(1));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final system = ref.watch(unitSystemProvider);
+    final controller = TextEditingController(text: currentWeight?.toStringAsFixed(1));
 
     return AlertDialog(
       title: const Text('Pesée Finale & Clôture'),
@@ -64,9 +48,9 @@ class _FinalWeighingDialogState extends State<FinalWeighingDialog> {
           ),
           const SizedBox(height: 16),
           TextField(
-            controller: _controller,
+            controller: controller,
             decoration: InputDecoration(
-              labelText: '${l10n.weight} (${UnitConverter.getSuffix(widget.currentWeight ?? 500, system)})', 
+              labelText: '${l10n.weight} (${UnitConverter.getSuffix(currentWeight ?? 500, system)})', 
               border: const OutlineInputBorder(),
             ),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -79,7 +63,7 @@ class _FinalWeighingDialogState extends State<FinalWeighingDialog> {
           child: Text(l10n.cancel),
         ),
         ElevatedButton(
-          onPressed: () => _showFinalSummary(context, ref),
+          onPressed: () => _showFinalSummary(context, ref, controller),
           child: Text(l10n.next),
         ),
       ],
@@ -87,17 +71,17 @@ class _FinalWeighingDialogState extends State<FinalWeighingDialog> {
   }
 
   /// Affiche le résumé final avec les statistiques de performance.
-  Future<void> _showFinalSummary(BuildContext context, WidgetRef ref) async {
+  Future<void> _showFinalSummary(BuildContext context, WidgetRef ref, TextEditingController controller) async {
     try {
-      final weightInput = double.tryParse(_controller.text);
+      final weightInput = double.tryParse(controller.text);
       if (weightInput == null) return;
       
-      final currentUnit = UnitConverter.getSuffix(weightInput, system);
+      final currentUnit = UnitConverter.getSuffix(weightInput, ref.watch(unitSystemProvider));
       final finalWeight = UnitConverter.toGrams(weightInput, currentUnit);
 
       // Calcul des statistiques finales
-      final initialWeight = widget.piece.poidsInitial;
-      final targetWeight = widget.piece.poidsCible;
+      final initialWeight = piece.poidsInitial;
+      final targetWeight = piece.poidsCible;
       
       final realLossPct = (1 - (finalWeight / initialWeight)) * 100;
       final targetLossPct = (1 - (targetWeight / initialWeight)) * 100;
@@ -149,11 +133,11 @@ class _FinalWeighingDialogState extends State<FinalWeighingDialog> {
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context), 
-                    child: Text(l10n.cancel),
+                    child: Text(AppLocalizations.of(context)!.cancel),
                   ),
                   ElevatedButton(
-                    onPressed: isConfirmed ? () => _finalizePiece(context, ref, finalWeight) : null,
-                    child: Text(l10n.validate),
+                    onPressed: isConfirmed ? () => _finalizePiece(context, ref, finalWeight, piece) : null,
+                    child: Text(AppLocalizations.of(context)!.validate),
                   ),
                 ],
               );
@@ -170,13 +154,16 @@ class _FinalWeighingDialogState extends State<FinalWeighingDialog> {
     }
   }
 
+
   /// Finalise la pièce en enregistrant la pesée finale et en changeant le statut.
-  Future<void> _finalizePiece(BuildContext context, WidgetRef ref, double finalWeight) async {
+  Future<void> _finalizePiece(BuildContext context, WidgetRef ref, double finalWeight, Piece piece) async {
     try {
+      final l10n = AppLocalizations.of(context)!;
+      
       // Enregistrement pesée finale
       await ref.read(piecesRepositoryProvider).addWeighing(
         WeighingsCompanion.insert(
-          pieceId: widget.piece.id,
+          pieceId: piece.id,
           date: DateTime.now(),
           poids: finalWeight,
           label: const drift.Value('Poids Final'),
@@ -185,11 +172,11 @@ class _FinalWeighingDialogState extends State<FinalWeighingDialog> {
 
       // Passage au statut final
       await ref.read(piecesRepositoryProvider).updatePiece(
-        widget.piece.toCompanion(false).copyWith(statut: const drift.Value('Terminé')),
+        piece.toCompanion(false).copyWith(statut: const drift.Value('Terminé')),
       );
       
       Navigator.pop(context); // Close summary
-      widget.onFinalized();
+      onFinalized();
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

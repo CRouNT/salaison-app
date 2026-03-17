@@ -12,11 +12,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:salaison_app/core/database/app_database.dart';
 import 'package:salaison_app/features/pieces/data/pieces_repository.dart';
-import 'package:salaison_app/core/utils/unit_converter.dart';
+import 'package:salaison_app/core/services/unit_converter.dart';
+import 'package:salaison_app/core/providers/settings_provider.dart';
 import 'package:salaison_app/l10n/generated/app_localizations.dart';
+import 'package:drift/drift.dart' as drift;
 
 /// Widget affichant la boîte de dialogue de pesée de pré-séchage.
-class PreDryingDialog extends StatefulWidget {
+class PreDryingDialog extends ConsumerWidget {
   final Piece piece;
   final String nextStatus;
   final double? currentWeight;
@@ -31,28 +33,10 @@ class PreDryingDialog extends StatefulWidget {
   });
 
   @override
-  State<PreDryingDialog> createState() => _PreDryingDialogState();
-}
-
-class _PreDryingDialogState extends State<PreDryingDialog> {
-  late final TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.currentWeight?.toStringAsFixed(1));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final system = ref.watch(unitSystemProvider);
+    final controller = TextEditingController(text: currentWeight?.toStringAsFixed(1));
 
     return AlertDialog(
       title: const Text('Pesée de Séchage (CRITIQUE)'),
@@ -69,9 +53,9 @@ class _PreDryingDialogState extends State<PreDryingDialog> {
           ),
           const SizedBox(height: 16),
           TextField(
-            controller: _controller,
+            controller: controller,
             decoration: InputDecoration(
-              labelText: '${l10n.weight} (${UnitConverter.getSuffix(widget.currentWeight ?? 500, system)})', 
+              labelText: '${l10n.weight} (${UnitConverter.getSuffix(currentWeight ?? 500, system)})', 
               border: const OutlineInputBorder(),
             ),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -84,7 +68,7 @@ class _PreDryingDialogState extends State<PreDryingDialog> {
           child: Text(l10n.cancel),
         ),
         ElevatedButton(
-          onPressed: () => _setPreDryingWeight(context, ref),
+          onPressed: () => _setPreDryingWeight(context, ref, controller),
           child: Text(l10n.validate),
         ),
       ],
@@ -92,21 +76,21 @@ class _PreDryingDialogState extends State<PreDryingDialog> {
   }
 
   /// Enregistre la pesée de pré-séchage et met à jour le statut de la pièce.
-  Future<void> _setPreDryingWeight(BuildContext context, WidgetRef ref) async {
+  Future<void> _setPreDryingWeight(BuildContext context, WidgetRef ref, TextEditingController controller) async {
     try {
-      final weightInput = double.tryParse(_controller.text);
+      final weightInput = double.tryParse(controller.text);
       if (weightInput != null) {
-        final currentUnit3 = UnitConverter.getSuffix(weightInput, system);
+        final currentUnit3 = UnitConverter.getSuffix(weightInput, ref.watch(unitSystemProvider));
         final storageWeight = UnitConverter.toGrams(weightInput, currentUnit3);
 
-        if (widget.currentWeight != null && storageWeight > widget.currentWeight!) {
+        if (currentWeight != null && storageWeight > currentWeight!) {
           final confirm = await _showIncreaseWarning(context);
           if (!confirm) return;
         }
 
         await ref.read(piecesRepositoryProvider).addWeighing(
           WeighingsCompanion.insert(
-            pieceId: widget.piece.id,
+            pieceId: piece.id,
             date: DateTime.now(),
             poids: storageWeight,
             label: const drift.Value('Séchage'),
@@ -114,13 +98,13 @@ class _PreDryingDialogState extends State<PreDryingDialog> {
         );
 
         await ref.read(piecesRepositoryProvider).updatePiece(
-          widget.piece.toCompanion(false).copyWith(
-            statut: drift.Value(widget.nextStatus),
+          piece.toCompanion(false).copyWith(
+            statut: drift.Value(nextStatus),
             preDryingWeight: drift.Value(storageWeight),
           ),
         );
         Navigator.pop(context);
-        widget.onPreDryingSet();
+        onPreDryingSet();
       }
     } catch (e) {
       if (context.mounted) {
@@ -130,6 +114,7 @@ class _PreDryingDialogState extends State<PreDryingDialog> {
       }
     }
   }
+
 
   /// Avertit l'utilisateur si le poids saisi est supérieur au poids précédent.
   Future<bool> _showIncreaseWarning(BuildContext context) async {

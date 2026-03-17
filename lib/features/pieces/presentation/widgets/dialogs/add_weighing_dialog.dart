@@ -12,11 +12,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:salaison_app/core/database/app_database.dart';
 import 'package:salaison_app/features/pieces/data/pieces_repository.dart';
-import 'package:salaison_app/core/utils/unit_converter.dart';
+import 'package:salaison_app/core/services/unit_converter.dart';
+import 'package:salaison_app/core/providers/settings_provider.dart';
 import 'package:salaison_app/l10n/generated/app_localizations.dart';
+import 'package:drift/drift.dart' as drift;
 
 /// Widget affichant la boîte de dialogue d'ajout de pesée.
-class AddWeighingDialog extends StatefulWidget {
+class AddWeighingDialog extends ConsumerWidget {
   final int pieceId;
   final double? lastWeight;
   final VoidCallback onWeighingAdded;
@@ -29,35 +31,17 @@ class AddWeighingDialog extends StatefulWidget {
   });
 
   @override
-  State<AddWeighingDialog> createState() => _AddWeighingDialogState();
-}
-
-class _AddWeighingDialogState extends State<AddWeighingDialog> {
-  late final TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final system = ref.watch(unitSystemProvider);
+    final controller = TextEditingController();
 
     return AlertDialog(
       title: Text(l10n.weighing),
       content: TextField(
-        controller: _controller,
+        controller: controller,
         decoration: InputDecoration(
-          labelText: '${l10n.poidsActuel} (${UnitConverter.getSuffix(widget.lastWeight ?? 500, system)})', 
+          labelText: '${l10n.poidsActuel} (${UnitConverter.getSuffix(lastWeight ?? 500, system)})', 
           border: const OutlineInputBorder(),
         ),
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -68,7 +52,7 @@ class _AddWeighingDialogState extends State<AddWeighingDialog> {
           child: Text(l10n.cancel),
         ),
         ElevatedButton(
-          onPressed: () => _addWeighing(context, ref),
+          onPressed: () => _addWeighing(context, ref, controller),
           child: Text(l10n.save),
         ),
       ],
@@ -76,28 +60,28 @@ class _AddWeighingDialogState extends State<AddWeighingDialog> {
   }
 
   /// Ajoute la pesée manuelle à la base de données.
-  Future<void> _addWeighing(BuildContext context, WidgetRef ref) async {
+  Future<void> _addWeighing(BuildContext context, WidgetRef ref, TextEditingController controller) async {
     try {
-      final weightInput = double.tryParse(_controller.text);
+      final weightInput = double.tryParse(controller.text);
       if (weightInput != null) {
-        final currentUnit4 = UnitConverter.getSuffix(weightInput, system);
+        final currentUnit4 = UnitConverter.getSuffix(weightInput, ref.watch(unitSystemProvider));
         final storageWeight = UnitConverter.toGrams(weightInput, currentUnit4);
 
-        if (widget.lastWeight != null && storageWeight > widget.lastWeight!) {
+        if (lastWeight != null && storageWeight > lastWeight!) {
           final confirm = await _showIncreaseWarning(context);
           if (!confirm) return;
         }
 
         await ref.read(piecesRepositoryProvider).addWeighing(
           WeighingsCompanion.insert(
-            pieceId: widget.pieceId,
+            pieceId: pieceId,
             date: DateTime.now(),
             poids: storageWeight,
             label: const drift.Value('Séchage'), // Uniquement manuel en phase Séchage
           ),
         );
         Navigator.pop(context);
-        widget.onWeighingAdded();
+        onWeighingAdded();
       }
     } catch (e) {
       if (context.mounted) {

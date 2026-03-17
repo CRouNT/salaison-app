@@ -12,11 +12,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:salaison_app/core/database/app_database.dart';
 import 'package:salaison_app/features/pieces/data/pieces_repository.dart';
-import 'package:salaison_app/core/utils/unit_converter.dart';
+import 'package:salaison_app/core/services/unit_converter.dart';
+import 'package:salaison_app/core/providers/settings_provider.dart';
 import 'package:salaison_app/l10n/generated/app_localizations.dart';
+import 'package:drift/drift.dart' as drift;
 
 /// Widget affichant la boîte de dialogue de pesée de transition.
-class TransitionWeighingDialog extends StatefulWidget {
+class TransitionWeighingDialog extends ConsumerWidget {
   final Piece piece;
   final String nextStatus;
   final String label;
@@ -33,40 +35,22 @@ class TransitionWeighingDialog extends StatefulWidget {
   });
 
   @override
-  State<TransitionWeighingDialog> createState() => _TransitionWeighingDialogState();
-}
-
-class _TransitionWeighingDialogState extends State<TransitionWeighingDialog> {
-  late final TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.currentWeight?.toStringAsFixed(1));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final system = ref.watch(unitSystemProvider);
+    final controller = TextEditingController(text: currentWeight?.toStringAsFixed(1));
 
     return AlertDialog(
-      title: Text('${l10n.weighing} : ${widget.label}'),
+      title: Text('${l10n.weighing} : ${label}'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('Veuillez enregistrer le poids pour passer à l\'étape ${widget.nextStatus}.'),
+          Text('Veuillez enregistrer le poids pour passer à l\'étape $nextStatus.'),
           const SizedBox(height: 16),
           TextField(
-            controller: _controller,
+            controller: controller,
             decoration: InputDecoration(
-              labelText: '${l10n.weight} (${UnitConverter.getSuffix(widget.currentWeight ?? 500, system)})', 
+              labelText: '${l10n.weight} (${UnitConverter.getSuffix(currentWeight ?? 500, system)})', 
               border: const OutlineInputBorder(),
             ),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -79,7 +63,7 @@ class _TransitionWeighingDialogState extends State<TransitionWeighingDialog> {
           child: Text(l10n.cancel),
         ),
         ElevatedButton(
-          onPressed: () => _addWeighing(context, ref),
+          onPressed: () => _addWeighing(context, ref, controller),
           child: Text(l10n.next),
         ),
       ],
@@ -87,36 +71,36 @@ class _TransitionWeighingDialogState extends State<TransitionWeighingDialog> {
   }
 
   /// Ajoute la pesée et met à jour le statut de la pièce.
-  Future<void> _addWeighing(BuildContext context, WidgetRef ref) async {
+  Future<void> _addWeighing(BuildContext context, WidgetRef ref, TextEditingController controller) async {
     try {
-      final weightInput = double.tryParse(_controller.text);
+      final weightInput = double.tryParse(controller.text);
       if (weightInput == null) return;
 
-      final transUnit = UnitConverter.getSuffix(weightInput, system);
+      final transUnit = UnitConverter.getSuffix(weightInput, ref.watch(unitSystemProvider));
       final storageWeight = UnitConverter.toGrams(weightInput, transUnit);
 
-      if (widget.currentWeight != null && storageWeight > widget.currentWeight!) {
+      if (currentWeight != null && storageWeight > currentWeight!) {
         final confirm = await _showIncreaseWarning(context);
         if (!confirm) return;
       }
 
       await ref.read(piecesRepositoryProvider).addWeighing(
         WeighingsCompanion.insert(
-          pieceId: widget.piece.id,
+          pieceId: piece.id,
           date: DateTime.now(),
           poids: storageWeight,
           label: const drift.Value('Sortie SSV'),
         ),
       );
 
-      final companion = widget.piece.toCompanion(false).copyWith(statut: drift.Value(widget.nextStatus));
-      if (widget.nextStatus == 'Séchage') {
+      final companion = piece.toCompanion(false).copyWith(statut: drift.Value(nextStatus));
+      if (nextStatus == 'Séchage') {
         companion.copyWith(preDryingWeight: drift.Value(storageWeight));
       }
       
       await ref.read(piecesRepositoryProvider).updatePiece(companion);
       Navigator.pop(context);
-      widget.onWeighingAdded();
+      onWeighingAdded();
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -125,6 +109,7 @@ class _TransitionWeighingDialogState extends State<TransitionWeighingDialog> {
       }
     }
   }
+
 
   /// Avertit l'utilisateur si le poids saisi est supérieur au poids précédent.
   Future<bool> _showIncreaseWarning(BuildContext context) async {

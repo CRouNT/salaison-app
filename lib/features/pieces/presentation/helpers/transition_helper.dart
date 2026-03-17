@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:salaison_app/core/database/app_database.dart';
 import 'package:salaison_app/features/pieces/data/pieces_repository.dart';
+import 'package:salaison_app/core/utils/calculations.dart';
 import 'package:salaison_app/features/pieces/presentation/widgets/dialogs/safety_dialogs.dart';
 import 'package:salaison_app/features/pieces/presentation/widgets/dialogs/smoking_dialog.dart';
 import 'package:salaison_app/features/pieces/presentation/widgets/dialogs/pre_drying_dialog.dart';
