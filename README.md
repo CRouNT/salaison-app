@@ -10,6 +10,17 @@
 
 > **"L'artisanat au service du code, le code au service de l'artisanat"**
 
+## 🔗 Liens & Contact
+
+- **[Repository GitHub](https://github.com/CRouNT/salaison-app)** - Code source et développement
+- **[Issues](https://github.com/CRouNT/salaison-app/issues)** - Signalement de bugs
+- **[Discussions](https://github.com/CRouNT/salaison-app/discussions)** - Support communautaire
+- **Cesium** : `DTm7ZfxbJNdR2HRGP3Vfkoq6gnyvMVbM519H9xYMTXMt` - Support technique
+
+## 👨‍💻 Développement
+
+Projet open-source - contributions bienvenues via [GitHub](https://github.com/CRouNT/salaison-app).
+
 ## ✨ Fonctionnalités
 
 ### 🧂 **Suivi Complet de la Salaison**
@@ -116,7 +127,7 @@ Si vous rencontrez un problème, merci de :
 ### Ğ1 (Monnaie Libre)
 Si cette application vous est utile, vous pouvez soutenir son développement via la monnaie libre Ğ1 :
 
-**Adresse de don :** `à définir`
+**Adresse de don :** `DTm7ZfxbJNdR2HRGP3Vfkoq6gnyvMVbM519H9xYMTXMt`
 
 > Chaque contribution aide à maintenir l'indépendance du projet et son développement continu.
 

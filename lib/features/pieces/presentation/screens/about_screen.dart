@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:salaison_app/core/theme/app_theme.dart';
 import 'package:salaison_app/l10n/generated/app_localizations.dart';
 
@@ -113,6 +114,35 @@ class AboutScreen extends StatelessWidget {
                   ),
                 ],
               ),
+              const SizedBox(height: 32),
+              const Divider(),
+              const SizedBox(height: 24),
+              Text(
+                'Liens',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.rougeBoeuf),
+              ),
+              const SizedBox(height: 16),
+              _buildLinkTile(
+                context,
+                icon: Icons.code,
+                title: 'Repository GitHub',
+                subtitle: 'https://github.com/CRouNT/salaison-app',
+                onTap: () => _launchUrl(context, 'https://github.com/CRouNT/salaison-app'),
+              ),
+              _buildLinkTile(
+                context,
+                icon: Icons.bug_report,
+                title: 'Signaler un bug',
+                subtitle: 'Issues GitHub',
+                onTap: () => _launchUrl(context, 'https://github.com/CRouNT/salaison-app/issues'),
+              ),
+              _buildLinkTile(
+                context,
+                icon: Icons.forum,
+                title: 'Support communautaire',
+                subtitle: 'Discussions GitHub',
+                onTap: () => _launchUrl(context, 'https://github.com/CRouNT/salaison-app/discussions'),
+              ),
               const SizedBox(height: 48),
               const Center(
                 child: Text(
@@ -125,5 +155,41 @@ class AboutScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Construit une tuile de lien cliquable.
+  Widget _buildLinkTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: AppTheme.rougeBoeuf, size: 28),
+      title: Text(
+        title,
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: const TextStyle(color: Colors.blueGrey, fontSize: 12),
+      ),
+      trailing: const Icon(Icons.open_in_new, size: 18, color: AppTheme.rougeBoeuf),
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    );
+  }
+
+  /// Lance une URL externe.
+  Future<void> _launchUrl(BuildContext context, String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible d\'ouvrir le lien')),
+      );
+    }
   }
 }
